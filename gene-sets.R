@@ -127,7 +127,9 @@ gson_to_matrix <- function(gson, genes, min_size=10) {
     mat <- mat[keep,,drop=FALSE]
     sizes <- sizes[keep]
     
-    mat <- mat - rowMeans(mat)
+    #Competitive version?
+    #mat <- mat - rowMeans(mat)
+    
     mat <- mat / sqrt(rowSums(mat*mat))
     
     info <- tibble(
