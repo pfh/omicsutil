@@ -1,7 +1,7 @@
 
 library(tidyverse)
-library(gprofiler2)
-library(UpSetR)
+#library(gprofiler2)
+#library(UpSetR)
 library(biomaRt)
 library(clusterProfiler)
 library(GO.db)
@@ -10,12 +10,16 @@ select <- dplyr::select
 
 sheep112 <- list(name="sheep112", dataset="oarambouillet_gene_ensembl", version="112", kegg="oas")
 
+mouse112 <- list(name="mouse93", dataset="mmusculus_gene_ensembl", version="112", kegg="mmu")
+
+
 # Allow slow biomaRt queries
 options(timeout=3600)
 
 
 cache <- function(name_parts, value) {
     name <- paste(name_parts,collapse="_")
+    dir.create("output/cache", recursive=TRUE, showWarnings=FALSE)
     filename <- paste0("output/cache/",name,".rds")
     if (!file.exists(filename)) {
         saveRDS(value, filename)
