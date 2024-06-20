@@ -116,3 +116,26 @@ get_ontologies <- function(spec) {
     
     gson_list
 }
+
+
+gson_to_matrix <- function(gson, genes, min_size=10) {
+    mat <- split(gson@gsid2gene$gene, gson@gsid2gene$gsid) |>
+        map(\(set) genes %in% set)
+    mat <- do.call(rbind, mat)
+    sizes <- rowSums(mat)
+    keep <- sizes >= min_size
+    mat <- mat[keep,,drop=FALSE]
+    sizes <- sizes[keep]
+    
+    mat <- mat - rowMeans(mat)
+    mat <- mat / sqrt(rowSums(mat*mat))
+    
+    info <- tibble(
+            gsid = rownames(mat),
+            size = sizes) |>
+        left_join(gson@gsid2name, by="gsid")
+    
+    list(
+        matrix=mat,
+        info=info)
+}
