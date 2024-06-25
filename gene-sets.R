@@ -89,7 +89,9 @@ get_ontologies <- function(spec) {
     gson_mf <- get_gson_go("MF")        
     gson_cc <- get_gson_go("CC")
     
-    gson_kegg_entrez <- gson_KEGG(spec$kegg)
+    gson_kegg_entrez <- cache(c("kegg",spec$name), 
+        gson_KEGG(spec$kegg)
+    )
     kegg_cats <- clusterProfiler:::kegg_category_data()
     gson_kegg <- gson::gson(
         gsid2gene=
