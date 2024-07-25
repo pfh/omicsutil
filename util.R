@@ -13,19 +13,29 @@ set <- \(a,b) eval.parent(substitute(\(.){b;.}))(a)
 
 # Reporting utilities
 
-give_figure <- function(f, name, width, height, res=200, out_dir="output/qmd") {
-    #ggsave(paste0("output/qmd/",name,".png"), p, width=width,height=height, dpi=200, limitsize=FALSE)
-    #ggsave(paste0("output/qmd/",name,".svg"), p, width=width,height=height, limitsize=FALSE)
+nice_name <- function(...) {
+    paste0(...) |> str_replace_all("[ :/\\\\]","_")
+}
+
+give_figure <- function(f, name, width, height, res=200) {
+    filename <- paste0(out_prefix,nice_name(name))
     
-    png(paste0(out_dir,"/",name,".png"), width=width,height=height,units="in",res=res)
+    png(paste0(out_dir,"/",filename,".png"), width=width,height=height,units="in",res=res)
     f()
     dev.off()
     
-    svg(paste0(out_dir,"/",name,".svg"), width=width,height=height)
+    svg(paste0(out_dir,"/",filename,".svg"), width=width,height=height)
     f()
     dev.off()
     
-    cat(paste0("Save-able images: <a href=\"",name,".png\">[PNG]</a>\n"))
-    cat(paste0("<a href=\"",name,".svg\">[SVG]</a>\n"))
+    cat(paste0("<b>",name,"</b> "))
+    cat(paste0("<a href=\"",filename,".png\">[PNG]</a>"))
+    cat(paste0("<a href=\"",filename,".svg\">[SVG]</a>\n"))
     cat(paste0("<br><img src=\"",name,".png\" width=",width*100,">\n\n"))
+}
+
+give_table <- function(df, name, what="rows") {
+    filename <- paste0(out_prefix,nice_name(name))
+    write_csv(df, paste0(out_dir,"/",filename,".csv"))
+    cat(paste0("* <a href=\"",filename,".csv\">", name, "</a> (csv, ", nrow(df), " ", what, ")\n\n"))
 }

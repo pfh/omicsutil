@@ -58,8 +58,9 @@ nice_varimax <- function(mat, n=2) {
         rotation <- varimax(loadings, normalize=FALSE)$rotmat
     }
     
-    # Flip components so loadings have positive skew
-    flips <- ifelse(colSums((loadings %*% rotation) ** 3) < 0, -1, 1)
+    # Flip components so loadings have positive outliers
+    temp <- loadings %*% rotation
+    flips <- ifelse(colSums(sign(temp)*(abs(temp)**4)) < 0, -1, 1)
     rotation <- sweep(rotation, 2, flips, '*')
     
     # Order by mean absolute scores
