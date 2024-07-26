@@ -31,11 +31,11 @@ give_figure <- function(f, name, width, height, res=200) {
     cat(paste0("<b>",name,"</b> "))
     cat(paste0("<a href=\"",filename,".png\">[PNG]</a>"))
     cat(paste0("<a href=\"",filename,".svg\">[SVG]</a>\n"))
-    cat(paste0("<br><img src=\"",name,".png\" width=",width*100,">\n\n"))
+    cat(paste0("<br><img src=\"",filename,".png\" width=",width*100,">\n\n"))
 }
 
 give_table <- function(df, name, what="rows") {
     filename <- paste0(out_prefix,nice_name(name))
     write_csv(df, paste0(out_dir,"/",filename,".csv"))
-    cat(paste0("* <a href=\"",filename,".csv\">", name, "</a> (csv, ", nrow(df), " ", what, ")\n\n"))
+    cat(paste0("* <a href=\"",filename,".csv\">", filename, ".csv</a> (", nrow(df), " ", what, ")\n\n"))
 }
