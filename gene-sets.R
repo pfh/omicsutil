@@ -10,7 +10,8 @@ select <- dplyr::select
 
 sheep112 <- list(name="sheep112", dataset="oarambouillet_gene_ensembl", version="112", kegg="oas")
 
-mouse112 <- list(name="mouse93", dataset="mmusculus_gene_ensembl", version="112", kegg="mmu")
+mouse112 <- list(name="mouse112", dataset="mmusculus_gene_ensembl", version="112", kegg="mmu")
+mouse110 <- list(name="mouse110", dataset="mmusculus_gene_ensembl", version="110", kegg="mmu")
 
 
 # Allow slow biomaRt queries
