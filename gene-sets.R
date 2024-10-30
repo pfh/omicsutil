@@ -5,6 +5,7 @@ library(tidyverse)
 library(biomaRt)
 library(clusterProfiler)
 library(GO.db)
+library(withr)
 
 select <- dplyr::select
 
@@ -121,17 +122,29 @@ get_ontologies <- function(spec) {
 }
 
 
-gson_to_matrix <- function(gson, genes, min_size=10) {
-    mat <- split(gson@gsid2gene$gene, gson@gsid2gene$gsid) |>
-        map(\(set) genes %in% set)
-    mat <- do.call(rbind, mat)
+gson_to_matrix <- function(gson, genes, min_size=10, competitive=FALSE) {
+    #message("split")
+    #mat <- split(gson@gsid2gene$gene, gson@gsid2gene$gsid) |>
+    #    map(\(set) genes %in% set)
+    #message("bind")
+    #mat <- do.call(rbind, mat)
+    
+    message("table")
+    df <- gson@gsid2gene
+    mat <- table(
+        factor(df$gsid, unique(df$gsid)),
+        factor(df$gene, genes))
+    
+    message("filter, etc")
     sizes <- rowSums(mat)
     keep <- sizes >= min_size
     mat <- mat[keep,,drop=FALSE]
     sizes <- sizes[keep]
     
     #Competitive version?
-    #mat <- mat - rowMeans(mat)
+    if (competitive) {
+        mat <- mat - rowMeans(mat)
+    }
     
     mat <- mat / sqrt(rowSums(mat*mat))
     
@@ -144,3 +157,138 @@ gson_to_matrix <- function(gson, genes, min_size=10) {
         matrix=mat,
         info=info)
 }
+
+grouped_description <- function(score, name, decimal_places=1) {
+    fmt <- paste0("%.",decimal_places,"f")
+    score <- sprintf(fmt, score)
+    
+    result <- c()
+    current <- ""
+    for(i in seq_len(length(score))) {
+        if (current != score[i]) {
+            result[length(result)+1] <- paste0("(",score[i],")")
+            current <- score[i]
+        }
+        result[length(result)+1] <- name[i]
+    }
+    
+    paste(result, collapse=" ")
+}
+
+
+# TODO: This can be made *much* faster and more memory efficient.
+correlation_enrichment_slow <- function(gson, scores, up=TRUE, min_size=2, p_cutoff=0.05, n_top=20, n_desc=20, n_samples=1000, decimal_places=1, seed=1) {
+    #message("mat")
+    mat <- gson_to_matrix(gson, names(scores), min_size=min_size, competitive=TRUE)
+    
+    s <- scores
+    if (!up) s <- -s
+    s <- s-mean(s)
+    s <- s/sqrt(sum(s*s))
+    r <- (mat$matrix %*% s)[,1]
+    
+    if (p_cutoff >= 1.0 || n_samples < 1) {
+        cutoff <- -Inf
+    } else {
+        #message("null sample")
+        #TODO: this is actuall K Nearest Neighbors
+        #dist <- with_seed(seed, replicate(n_samples, max(mat$matrix %*% sample(s))))
+        samples <- with_seed(seed, replicate(n_samples, sample(s)))
+        
+        # Alternative method:
+        #message("nn2")
+        #result <- RANN::nn2(mat$matrix, t(samples))
+        #dist <- (result$nn.dists[,1]**2-2) * -0.5
+        
+        #message("null multiply and max")
+        dist <- apply(mat$matrix %*% samples, 2, max)
+        
+        cutoff <- quantile(dist, 1-p_cutoff) |> as.vector()
+    }
+    
+    result <- mutate(mat$info, r=.env$r) |> 
+        #filter(r >= cutoff) |> 
+        arrange(-r) |> 
+        slice_head(n=n_top)
+    
+    #message("desc")
+    result$top_genes <- map_chr(result$gsid,\(gsid) {
+        genes <- filter(gson@gsid2gene,gsid==.env$gsid) |> 
+            left_join(gson@gene2name,by="gene") |>
+            left_join(enframe(scores,"gene","score"), by="gene") |>
+            arrange(score * ifelse(up,-1,1)) |>
+            slice_head(n=n_desc)
+        grouped_description(genes$score, genes$name, decimal_places)
+    })
+    
+    result <- relocate(result, name, r, size, top_genes)
+    
+    list(result=result, cutoff=cutoff)
+}
+
+
+
+
+
+correlation_enrichment <- function(gson, scores, up=TRUE, min_size=2, p_cutoff=0.05, n_top=20, n_desc=20, n_samples=1000, decimal_places=1, seed=1) {
+    # scores should be named.
+    # Convert to indices into scores vector
+    df <- gson@gsid2gene |>
+        mutate(gene = match(gene, names(scores))) |>
+        filter(!is.na(gene))
+    
+    # Convert into list of vectors of indices
+    # Discard sets that are too small
+    sets <- split(df$gene, df$gsid)
+    n1 <- map_dbl(sets, length)
+    keep <- n1 >= min_size
+    sets <- sets[keep]
+    n1 <- n1[keep]
+    
+    s <- scores
+    if (!up) s <- -s
+    s <- s-mean(s)
+    s <- s/sqrt(sum(s*s))
+    n <- length(s)
+    
+    # See correlation_enrichment_notes.txt
+    n0 <- n - n1
+    b <- 1/sqrt(n1*n1/n0+n1)
+    a <- -n1/n0 * b
+    scale <- b-a
+    
+    # Function to calculate correlations
+    get_r <- function(s) map_dbl(sets,\(idx) sum(s[idx])) * scale
+    
+    r <- get_r(s)
+    
+    if (p_cutoff >= 1.0 || n_samples < 1) {
+        cutoff <- -Inf
+    } else {
+        dist <- with_seed(seed, replicate(n_samples, max(get_r(sample(s)))))
+        cutoff <- quantile(dist, 1-p_cutoff) |> as.vector()
+    }
+    
+    result <- tibble(
+            gsid = names(sets),
+            size = n1,
+            r = r) |>
+        left_join(gson@gsid2name, by="gsid") |>
+        #filter(r >= cutoff) |> 
+        arrange(-r) |> 
+        slice_head(n=n_top)
+    
+    result$top_genes <- map_chr(result$gsid,\(gsid) {
+        genes <- filter(gson@gsid2gene,gsid==.env$gsid) |> 
+            inner_join(gson@gene2name,by="gene") |>
+            inner_join(enframe(scores,"gene","score"), by="gene") |>
+            arrange(score * ifelse(up,-1,1)) |>
+            slice_head(n=n_desc)
+        grouped_description(genes$score, genes$name, decimal_places)
+    })
+    
+    result <- relocate(result, name, r, size, top_genes)
+    
+    list(result=result, cutoff=cutoff)
+}
+

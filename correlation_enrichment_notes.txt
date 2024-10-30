@@ -1,0 +1,37 @@
+
+
+We can calculate the correlations much faster than with a big matrix multiply.
+
+n0 - genes outside set
+n1 - genes inside set
+
+We want value a for outside set and b for inside set.
+
+Constrain so we have a unit vector:
+
+n0 a   +  n1 b = 0
+n0 a a + n1 b b = 1
+
+
+
+a = -n1/n0 b
+
+n0 n1 n1 / n0 / n0 b b + n1 b b = 1
+(n1 n1 / n0 + n1) b b = 1
+
+b = 1/sqrt(n1*n1/n0 + n1)
+
+
+# Example
+n0 <- 10000
+n1 <- 5
+b <- 1/sqrt(n1*n1/n0+n1)
+a <- -n1/n0 * b
+n0 * a + n1 * b
+n0 * a * a + n1 * b * b
+
+# Dot product with scores vector is
+total * a + in_set * (b-a)
+
+Note if total==0, we can just calculate in_set*(b-a)
+
