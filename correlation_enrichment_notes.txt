@@ -35,3 +35,18 @@ total * a + in_set * (b-a)
 
 Note if total==0, we can just calculate in_set*(b-a)
 
+
+
+
+A possible step-down FDR method:
+
+Test the maximum r against the threshold.
+Remove the corresponding gene-set from the null samples, and recompute the maximum.
+Repeat.
+
+This performs n_discoveries+1 tests, each with specified alpha.
+
+
+
+Well, searching for "step-down FDR" shows quite a lot of research has been done.
+
